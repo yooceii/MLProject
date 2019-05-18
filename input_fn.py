@@ -18,47 +18,41 @@ def get_num_classes(classes_file):
     return num_classes
 
 
-#generate input_fn object
-def get_input_fn(mode, tfrecord_pattern, batch_size):
+def input_fn(mode,tfrecord_path,batch_size):
+    #create input_set and storage
+    def _parse_tffn(example_proto, mode):
+        #Create a dictionary having two of features
+        feature={}
+        feature["ink"]=tf.VarLenFeature(dtype=tf.float32)
+        feature["shape"]=tf.FixedLenFeature([2],dtype=tf.int64)
 
-    def _parse_tfexample_fn(example_proto, mode):
-        feature_to_type = {
-            "ink": tf.VarLenFeature(dtype=tf.float32),
-            "shape": tf.FixedLenFeature([2], dtype=tf.int64)
-        }
-        if mode != tf.estimator.ModeKeys.PREDICT:
-            feature_to_type["class_index"] = tf.FixedLenFeature(
-                [1], dtype=tf.int64)
-
-        parsed_features = tf.parse_single_example(
-            example_proto, feature_to_type)
+        if mode!=tf.estimator.ModeKeys.PREDICT:
+            feature["class"]=tf.FixedLenFeature([1],dtype=tf.int64)
+        
+        parsedFeatures = tf.parse_single_example(example_proto,feature)
         labels = None
-        if mode != tf.estimator.ModeKeys.PREDICT:
-            print(parsed_features)
-            labels = parsed_features["class_index"]
-        parsed_features["ink"] = tf.sparse_tensor_to_dense(
-            parsed_features["ink"])
-        return parsed_features, labels
-
+        if mode!=tf.estimator.ModeKeys.PREDICT:
+            labels = parsedFeatures["class"]
+        parsedFeatures["ink"] = tf.sparse_tensor_to_dense(parsedFeatures["ink"])
+        return parsedFeatures,labels
+    
     def _input_fn():
-        dataset = tf.data.TFRecordDataset.list_files(tfrecord_pattern)
+        dataset = tf.data.TFRecordDataset.list_files(tfrecord_path)
         if mode == tf.estimator.ModeKeys.TRAIN:
             dataset = dataset.shuffle(buffer_size=10)
         dataset = dataset.repeat()
-        dataset = dataset.interleave(
-            tf.data.TFRecordDataset,
-            cycle_length=10,
-            block_length=1)
         dataset = dataset.map(
-            functools.partial(_parse_tfexample_fn, mode=mode),
-            num_parallel_calls=10)
+            functools.partial(_parse_tffn,mode=mode),
+            num_parallel_calls=10
+        )
         dataset = dataset.prefetch(10000)
         if mode == tf.estimator.ModeKeys.TRAIN:
             dataset = dataset.shuffle(buffer_size=1000000)
+        
         dataset = dataset.padded_batch(
-            batch_size, padded_shapes=dataset.output_shapes)
-        features, labels = dataset.make_one_shot_iterator().get_next()
+            batch_size,padded_shapes = dataset.output_shapes)
+        features,labels = dataset.make_one_shot_iterator().get_next()
         return features, labels
-
+    
     return _input_fn
-
+    

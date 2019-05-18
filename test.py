@@ -12,26 +12,26 @@ import tensorflow as tf
 from model_fn import model_fn
 from input_fn import get_num_classes, get_input_fn
 
-FLAGS = { 
-    "training_data": "data/training.tfrecord-00000-of-00001",
-    "eval_data": "data/eval.tfrecord-00000-of-00001",
-    "classes_file": "data/training.tfrecord.classes",
-    "num_layers": 3,
-    "num_nodes": 128,
-    "num_conv": "[48, 64, 96]",
-    "conv_len": "[5, 5, 3]",
-    "cell_type": "lstm",
-    "batch_norm": False,
-    "learning_rate": 0.0001,
-    "gradient_clipping_norm": 9.0,
-    "dropout": 0.3,
-    "steps": 100000,
-    "batch_size": 8,
-    "model_dir": "./checkpoint",
-    "self_test": False
-}
-
 if __name__ == "__main__":
+
+    FLAGS = { 
+        "training_data": "data/training.tfrecord-00000-of-00001",
+        "eval_data": "data/eval.tfrecord-00000-of-00001",
+        "classes_file": "data/training.tfrecord.classes",
+        "num_layers": 3,
+        "num_nodes": 128,
+        "num_conv": "[48, 64, 96]",
+        "conv_len": "[5, 5, 3]",
+        "batch_norm": False,
+        "learning_rate": 0.0001,
+        "gradient_clipping_norm": 9.0,
+        "dropout": 0.3,
+        "steps": 100000,
+        "batch_size": 8,
+        "model_dir": "./checkpoint",
+        "self_test": False
+    }
+
     
     config = tf.estimator.RunConfig(
           model_dir=FLAGS.model_dir,
@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
-    testEstimator = tf.estimator.Estimator(model_fn=model_fn,warm_start_from="checkpoint/")
+    testEstimator = tf.estimator.Estimator(model_fn=model_fn,warm_start_from="checkpoint/", config=config, params=model_params)
 
     pred_input_fn = lambda: get_input_fn(mode=tf.estimator.ModeKeys.PREDICT, tfrecord_pattern = FLAGS.test_data, batch_size=FLAGS.batch_size)
-    testEstimator.predict(pred_input_fn,  )
+    testEstimator.predict(pred_input_fn)
